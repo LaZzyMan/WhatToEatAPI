@@ -1,16 +1,18 @@
 # -*- coding: UTF-8 -*-
-from flask import Flask, make_response, request, jsonify, abort, send_from_directory
+from flask import Flask, make_response, request, jsonify, abort, send_from_directory, send_file
 from flask_httpauth import HTTPBasicAuth
 from forUserLogin import UserLogin
 from forUsers import UserRegister, UserChangeInfo
 from forAdministrators import UserAddHistory, UserDeleteHistory, History
 from werkzeug.utils import secure_filename
+from pymongo import MongoClient
+import random
 import os
 #from forConfirmEmail import SendMessage, IMessage
 
 whatToEat = Flask(__name__)
 auth = HTTPBasicAuth()
-whatToEat.config['UPLOAD_FOLDER'] = '/'
+whatToEat.config['UPLOAD_FOLDER'] = 'static/'
 whatToEat.config['ALLOWED_EXTENSIONS'] = set(['png', 'jpg', 'jpeg', 'gif'])
 
 @auth.get_password
@@ -105,6 +107,10 @@ def downimage():
     userId = request.json['userID']
     return send_from_directory(whatToEat.static_folder, userId+'.jpg')
 
+@whatToEat.route('/api/v2.0/download/<filename>', methods = ['GET'])
+def downloadimage(filename):
+    return send_from_directory(whatToEat.static_folder, filename)
+
 @whatToEat.route('/api/v2.0/sendmessage', methods = ['PUT'])
 @auth.login_required
 def send():
@@ -122,6 +128,46 @@ def ensure():
     user = IMessage(request.json)
     re = user.ensuremessage()
     return jsonify({'result': re})
+
+@whatToEat.route('/api/v2.0/recommand', methods=['PUT'])
+def recommand():
+    json = request.json
+    client = MongoClient()
+    restaurantDB = client.WhatToEat.Restaurant
+    print ("成功连接到数据库")
+    restaurantToChoose = json['restaurants']
+    energy = json['energy']
+    restaurants = []
+    i = 0
+    for restaurant in restaurantToChoose:
+        result = list(restaurantDB.find({"name": restaurant['name']}))
+        if len(result) != 0:
+            result[0]['distance'] = restaurant['distance']
+            del result[0]['_id']
+            result[0]['index'] = i
+            restaurants.append(result[0])
+    print ("餐厅数据读取完成")
+
+    randomPart = []
+    distanceTmp = []
+    energyTmp = []
+    for restaurant in restaurants:
+        randomPart.append(random.random())
+        distanceTmp.append(restaurant['distance'])
+        energyTmp.append(abs(restaurant['hot'] - energy))
+    distancePart = [(i - min(distanceTmp)) / (max(distanceTmp) - min(distanceTmp) + 0.01) for i in distanceTmp]
+    energyPart = [(i - min(energyTmp)) / (max(energyTmp) - min(energyTmp) + 0.01) for i in energyTmp]
+    for i in range(len(restaurants)):
+        restaurants[i]['rate'] = randomPart[i] * 0.4 + distancePart[i] * 0.2 + energyPart[i] * 0.4
+    restaurants.sort(key=lambda a: a['rate'])
+    recommandRestaurant = {}
+    i = 0
+    for restaurant in restaurants:
+        recommandRestaurant[str(i)] = restaurant
+        i += 1
+    print("餐厅推荐完成")
+    print(len(restaurants))
+    return jsonify(recommandRestaurant)
 
 if __name__ == '__main__':
     whatToEat.run()
@@ -164,3 +210,132 @@ if __name__ == '__main__':
 #input userID, confirmnumber
 #determined whether the userID and confirmnumber are correct, if the confirmnuber is correct, the account passes validation and can login now
 #output: false/ true
+
+#recommand restaurant
+#input example {"energy": 800,"restaurants": [{"name": "金马门国际美食百汇(珞喻路店)","distance": 450}]}
+'''
+output example {
+    "0": {
+        "address": "屯珞喻路87号君宜王朝大饭店5楼(近赛博数码广场)",
+        "avgPrice": "156",
+        "commentScore": {
+            "environment": "9.0",
+            "service": "8.9",
+            "taste": "9.0"
+        },
+        "distance": 450,
+        "hot": 672.9739130434783,
+        "index": 0,
+        "location": {
+            "lat": 30.525540041914976,
+            "lng": 114.35919024013658
+        },
+        "name": "金马门国际美食百汇(珞喻路店)",
+        "rate": 0.26194263971441395,
+        "recipe": [
+            {
+                "hot": 193,
+                "name": " 三文鱼 "
+            },
+            {
+                "hot": 183,
+                "name": " 哈根达斯 "
+            },
+            {
+                "hot": 97,
+                "name": " 虾饺 "
+            },
+            {
+                "hot": 287,
+                "name": " 天妇罗 "
+            },
+            {
+                "hot": 180,
+                "name": " 生鱼片 "
+            },
+            {
+                "hot": 196,
+                "name": " 提拉米苏 "
+            },
+            {
+                "hot": 145,
+                "name": " 大蟹腿 "
+            },
+            {
+                "hot": 180,
+                "name": " 芝士蛋糕 "
+            },
+            {
+                "hot": 225,
+                "name": " 红酒煎鹅肝 "
+            },
+            {
+                "hot": 212,
+                "name": " 芒果布丁 "
+            },
+            {
+                "hot": 266,
+                "name": " 芝士焗扇贝 "
+            },
+            {
+                "hot": 196,
+                "name": " 牛排 "
+            },
+            {
+                "hot": 133,
+                "name": " 寿司 "
+            },
+            {
+                "hot": 276,
+                "name": " 烤生蚝 "
+            },
+            {
+                "hot": 286,
+                "name": " 酥皮汤 "
+            },
+            {
+                "hot": 126,
+                "name": " 焗蜗牛 "
+            },
+            {
+                "hot": 299,
+                "name": " 鹅肝 "
+            },
+            {
+                "hot": 146,
+                "name": " 卤甲鱼 "
+            },
+            {
+                "hot": 212,
+                "name": " 鳗鱼 "
+            },
+            {
+                "hot": 265,
+                "name": " 佛跳墙 "
+            },
+            {
+                "hot": 217,
+                "name": " 生蚝 "
+            },
+            {
+                "hot": 297,
+                "name": " 鲍鱼 "
+            },
+            {
+                "hot": 220,
+                "name": " 片皮鸭 "
+            }
+        ],
+        "tel": "027-87687878",
+        "type": "自助餐"
+    }
+}
+'''
+#upload image
+#input data['headimage']
+#ouput result:1/0
+
+#downloadimage
+#input userID
+#ouput userID.jpg
+

@@ -31,7 +31,7 @@ class SendMessage(object):
         address = result['email']
         mail = Mail(app)
         msg = Message('What to Eat Tonight', sender='598122401@qq.com', recipients=[address])
-        msg.body = "Hello, dear friend!\nYour verification code is : " + code +"\nThanks for your support!"
+        msg.body = "Hello, dear friend!\nYour verification code is : " + str(code) +"\nThanks for your support!"
         with app.app_context():
             mail.send(msg)
         return "True"
